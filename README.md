@@ -18,6 +18,9 @@ the concept further. I should be able to use whatever harness backend I like,
 partially because that means if someone has extensions to say Tap::Parser they
 like and want to keep, they can yet reap the benefits of a simple and fast
 test runner script without worrying about having to refactor all the things.
+We also should not support plugins, as I want this to be simple. To be fair,
+the better spot to integrate anyways *is* at the harness level anyways, and that
+is something we ultimately want to be agnostic about.
 
 As to concurrency, I see no benefit to using anything other than MCE for this,
 partially because we can have our *collector* process which is running the test
