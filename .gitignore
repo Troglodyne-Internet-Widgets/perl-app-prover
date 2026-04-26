@@ -2,3 +2,12 @@
 *.bak
 *.swp
 *.swo
+*~
+/blib/
+/Makefile
+/Makefile.old
+/MYMETA.*
+/pm_to_blib
+/App-Prover-*
+/local/
+/cover_db/

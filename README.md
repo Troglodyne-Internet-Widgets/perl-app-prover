@@ -7,8 +7,11 @@ A test *runner* script (NOT a TAP harness like Test2-Harness or Test::Builder) t
 as simple as possible, but which has *most* of the "power" of advanced tools like
 App::Prove or App::Yath::Script/Test2::Harness2.
 
-Ideally this also is *faster* to execute large paralellized test loads than both
-App::Prove or App::Yath::Script (benchmarked against using the 2.0 branch Test harness).
+V1 ships matching `prove` on speed (within a few percent across `-j1`/`-j8`/`-j16`
+on a 200-test microbench — see `xt/bench/RESULTS.md`) with a substantially
+simpler architecture and pluggable parser backends. Beating preload-enabled
+Yath2 on big real-world suites is a V2 goal: it requires preload, which V1
+explicitly defers (see `AI_IMPLEMENTATION_PLAN.md`).
 
 Architecture
 ------------
