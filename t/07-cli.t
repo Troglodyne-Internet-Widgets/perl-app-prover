@@ -4,7 +4,7 @@ use Test::More;
 use FindBin ();
 use File::Spec ();
 
-use App::Prover::CLI ();
+use App::Prover ();
 
 my $fixtures = File::Spec->catdir($FindBin::Bin, 'fixtures');
 
@@ -17,7 +17,7 @@ sub capture {
         local *STDERR;
         open STDOUT, '>', \$out or die $!;
         open STDERR, '>', \$err or die $!;
-        $exit = App::Prover::CLI->run(@argv);
+        $exit = App::Prover->run(@argv);
     }
     return ($exit, $out, $err);
 }
@@ -25,13 +25,13 @@ sub capture {
 subtest 'CLI: --version' => sub {
     my ($exit, $out) = capture('--version');
     is $exit, 0, 'exit 0';
-    like $out, qr/app-prover\s+\d+/, 'version printed';
+    like $out, qr/prover\s+\d+/, 'version printed';
 };
 
 subtest 'CLI: --help' => sub {
     my ($exit, $out) = capture('--help');
     is $exit, 0, 'exit 0';
-    like $out, qr/Usage:.*app-prover/s, 'usage printed';
+    like $out, qr/Usage:.*prover/s, 'usage printed';
 };
 
 subtest 'CLI: pass file with -j 1' => sub {

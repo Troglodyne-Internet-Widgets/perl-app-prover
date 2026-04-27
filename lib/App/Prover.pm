@@ -1,20 +1,212 @@
+#!/usr/bin/env perl
 package App::Prover;
 
 use strict;
 use warnings;
 
-our $VERSION = '0.001';
+use Getopt::Long qw(GetOptionsFromArray :config no_auto_abbrev no_ignore_case bundling);
+use File::Find  ();
+use File::Spec  ();
+use List::Util  qw(shuffle);
 
 use App::Prover::Runner ();
 
-sub new {
-    my ($class, %opts) = @_;
-    return bless { opts => \%opts }, $class;
-}
+our $VERSION = $App::Prover::Runner::VERSION;
+
+exit __PACKAGE__->run(@ARGV) unless caller;
 
 sub run {
-    my ($self, @files) = @_;
-    return App::Prover::Runner->new(%{ $self->{opts} })->run(@files);
+    my ($class, @argv) = @_;
+
+    my %opt = (
+        jobs    => $ENV{HARNESS_JOBS} || 1,
+        backend => 'tap', # XXX TODO support more backends
+        ext     => [],
+        I       => [],
+        M       => [],
+    );
+
+    GetOptionsFromArray(
+        \@argv,
+        'jobs|j=i'        => \$opt{jobs},
+        'lib|l!'          => \$opt{lib},
+        'blib|b!'         => \$opt{blib},
+        'I=s@'            => $opt{I},
+        'M=s@'            => $opt{M},
+        'recurse|r!'      => \$opt{recurse},
+        'verbose|v!'      => \$opt{verbose},
+        'ext=s@'          => $opt{ext},
+        'shuffle!'        => \$opt{shuffle},
+        'reverse!'        => \$opt{reverse},
+        'timer!'          => \$opt{timer},
+        'backend=s'       => \$opt{backend},
+        'log-dispatch=s'  => \$opt{log_dispatch},
+        'version'         => \$opt{show_version},
+        'help|h'          => \$opt{show_help},
+    ) or return _usage(\*STDERR, 2);
+
+    return _print_version() if $opt{show_version};
+    return _usage(\*STDOUT, 0) if $opt{show_help};
+
+    @{ $opt{ext} } = ('.t') unless @{ $opt{ext} };
+
+    my @inc;
+    push @inc, 'lib'                    if $opt{lib};
+    push @inc, 'blib/lib', 'blib/arch'  if $opt{blib};
+    push @inc, @{ $opt{I} }             if @{ $opt{I} };
+
+    # Slam together perlopts mostly for lib/module loads
+    # XXX TODO Ideally preloads are actually mindread from -M arg.
+    # To be honest, we probably can preload them in the main process
+    # as ultimately the children all would share whatever's loaded even if
+    # we use something like goto::file.
+    # In order not to pollute memory state in the shared workers, we may
+    # have to get clever about scrubbing whatever the test had loaded perhaps.
+    # It would be interesting if we could mmap the state right of the process
+    # worker right before it executes then just brainwash the worker,
+    # only replacing the test to run. Not sure if that's even possible in perl.
+    my @perl_args = ( ( map { "-I$_" } @inc ), ( map { "-M$_" } @{ $opt{M} } ) );
+
+    # XXX TODO make test discovery its own module so that it can be extended
+    my @files = _discover_tests(\@argv, $opt{ext}, $opt{recurse});
+    @files = shuffle @files          if $opt{shuffle};
+    @files = reverse @files          if $opt{reverse};
+
+    unless (@files) {
+        print STDERR "No test files found, nothing to do.";
+        return 2;
+    }
+
+    my $sinks = _build_sinks(\%opt);
+
+    my $runner = App::Prover::Runner->new(
+        jobs      => $opt{jobs},
+        verbose   => $opt{verbose} ? 1 : 0,
+        backend   => $opt{backend},
+        perl_args => \@perl_args,
+        sinks     => $sinks,
+    );
+
+    return $runner->run(@files);
+}
+
+sub _build_sinks {
+    my ($opt) = @_;
+    my @sinks;
+
+    if ($opt->{verbose} && $opt->{jobs} <= 1) {
+        require App::Prover::Sink::Verbose;
+        push @sinks, App::Prover::Sink::Verbose->new;
+    }
+    else {
+        require App::Prover::Sink::QVF;
+        push @sinks, App::Prover::Sink::QVF->new;
+    }
+
+    # XXX TODO I think Log::Dispatch is being used improperly here.
+    # Ideally we just past a list of output (dispatch) sources to it
+    # Whether that be a log, STD*, what have you
+    # The -v is just a loglevel. Instead the opt should basically just add another logfile
+    # If we want other dispatch like a DB then this should be handled by a config file I think.
+    # Failure events via a logger pattern match "error" output which would be an earlier
+    # loglevel than verbose, so you basically get qvf for free just by having your minimum
+    # loglevel be that style of output where not_ok is considered error output.
+    # Levels: error, summary (default), verbose.
+    if ($opt->{log_dispatch}) {
+        require App::Prover::Sink::LogDispatch;
+        push @sinks, App::Prover::Sink::LogDispatch->new(config => $opt->{log_dispatch});
+    }
+
+    return \@sinks;
+}
+
+sub _discover_tests {
+    my ($argv, $exts, $recurse) = @_;
+
+    my @args = @$argv ? @$argv : (-d 't' ? ('t') : (), -d 'xt' ? ('xt') : ());
+    return () unless @args;
+
+    my @files;
+    for my $arg (@args) {
+        if (-f $arg) {
+            push @files, $arg;
+            next;
+        }
+        if (-d _) {
+            push @files, _files_under($arg, $exts, $recurse);
+            next;
+        }
+        warn "no such file or directory: $arg\n";
+    }
+    return @files;
+}
+
+sub _files_under {
+    my ($dir, $exts, $recurse) = @_;
+    my %ext_set = map { $_ => 1 } map { /^\./ ? $_ : ".$_" } @$exts;
+    my @found;
+    if ($recurse) {
+        File::Find::find(
+            {
+                wanted => sub {
+                    return unless -f $_;
+                    my ($e) = $_ =~ /(\.[^.]+)$/;
+                    return unless $e && $ext_set{$e};
+                    push @found, $File::Find::name;
+                },
+                no_chdir => 1,
+            },
+            $dir,
+        );
+    }
+    else {
+        opendir my $dh, $dir or do {
+            warn "cannot open directory $dir: $!\n";
+            return ();
+        };
+        while ( defined( my $entry = readdir $dh ) ) {
+            next if $entry =~ /^\.\.?$/;
+            my $path = File::Spec->catfile($dir, $entry);
+            next unless -f $path;
+            my ($e) = $entry =~ /(\.[^.]+)$/;
+            next unless $e && $ext_set{$e};
+            push @found, $path;
+        }
+        closedir $dh;
+    }
+    return sort @found;
+}
+
+sub _print_version {
+    print "prover $App::Prover::Runner::VERSION\n";
+    return 0;
+}
+
+# XXX replace with POD::Usage
+sub _usage {
+    my ($fh, $exit) = @_;
+    print {$fh} <<'USAGE';
+Usage: prover [options] [tests-or-dirs...]
+
+  -j N, --jobs N        Concurrency (default: $HARNESS_JOBS || 1)
+  -l, --lib             Add ./lib to @INC
+  -b, --blib            Add ./blib/lib and ./blib/arch to @INC
+  -I PATH               Add PATH to @INC (repeatable)
+  -M MODULE             -mMODULE for tests (repeatable)
+  -r, --recurse         Recurse into directories
+  -v, --verbose         Verbose output (live-stream when -j 1)
+  --ext EXT             Filename extension to discover (default: .t, repeatable)
+  --shuffle             Shuffle test order
+  --reverse             Reverse test order
+  --timer               Show per-test elapsed time
+  --backend NAME        tap (default) | test2
+  --log-dispatch CFG    Optional Log::Dispatch wiring
+  --version             Print version and exit
+  -h, --help            Show this help
+
+If no test paths are given, discovers tests under t/ then xt/.
+USAGE
+    return $exit;
 }
 
 1;
@@ -39,10 +231,33 @@ App::Prover - simple, fast, MCE-driven Perl test runner script
 
 A test runner script designed to be as simple as possible while still providing
 parallel execution, pluggable parser backends (TAP and Test2 facets), and
-multiple output sinks. See L<bin/app-prover> for the command-line interface.
+multiple output sinks. See L<bin/prover> for the command-line interface.
+
+=head2 What's in a name???
+
+Since prove is a somewhat scientific term, I thought that the appropriate "upgrayedd"
+to this also needed a highly scientific name. Thus 'prover'.
+You may be curious about what the extra 'r' means as well; this part in particular
+is extremely sciency:
+
+=over 4
+
+=item r
+
+The first word in 'red' which is what you paint your trukk to make it go fasta'
+
+=item r
+
+The 'type' of Honda Civic you drive to go faster. Ideally in red.
+
+=item r
+
+Recursive, which is even an option. Highly useful in benchmarking this when running versus other testsuites.
+
+=back
 
 =head1 SEE ALSO
 
-L<App::Prover::Runner>, L<App::Prover::CLI>, L<prove>.
+L<App::Prover::Runner>, L<App::Prove>, L<App::Yath::Script>.
 
 =cut

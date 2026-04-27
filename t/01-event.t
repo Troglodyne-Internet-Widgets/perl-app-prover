@@ -1,6 +1,8 @@
 use strict;
 use warnings;
+
 use Test::More;
+# TODO use FindBin::libs for all this, add 2 cpanfile
 
 use App::Prover::Event qw(:all);
 

@@ -9,7 +9,7 @@ WriteMakefile(
     ABSTRACT         => 'A simple, fast, MCE-driven Perl test runner script',
     LICENSE          => 'perl_5',
     MIN_PERL_VERSION => '5.020',
-    EXE_FILES        => ['bin/app-prover'],
+    EXE_FILES        => ['bin/prover'],
 
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => '6.64',

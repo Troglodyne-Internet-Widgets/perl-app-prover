@@ -38,6 +38,7 @@ sub run_parallel {
             my $emit = sub {
                 MCE->do('App::Prover::Runner::MCE::on_event', $_[0]);
             };
+            local $@;
             my $result = eval {
                 App::Prover::Worker::run(
                     file      => $file,

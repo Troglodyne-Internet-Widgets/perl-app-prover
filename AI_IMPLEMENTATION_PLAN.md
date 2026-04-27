@@ -23,7 +23,7 @@ The README sketches: MCE-driven concurrency, Log::Dispatch-driven output, no plu
 
 ```
                           ┌─────────────────────┐
-                          │  bin/app-prover     │   CLI entry, parses argv,
+                          │  bin/prover     │   CLI entry, parses argv,
                           │  (or bin/prover)    │   builds run config
                           └──────────┬──────────┘
                                      │
@@ -92,7 +92,7 @@ Reuse `TAP::Parser::Aggregator` (`/usr/share/perl/5.38/TAP/Parser/Aggregator.pm`
 | `App/Prover/Sink/Verbose.pm` | Streams every event. Default for `-v -j 1`. |
 | `App/Prover/Sink/JSONL.pm` | Optional. One JSON event per line. |
 | `App/Prover/Sink/LogDispatch.pm` | Optional. Wraps a `Log::Dispatch` instance; severity = `info` for results, `notice` for diags, `error` for FAIL. |
-| `bin/app-prover` (or `bin/prover`) | `#!perl` shim → `App::Prover::CLI`. |
+| `bin/prover` (or `bin/prover`) | `#!perl` shim → `App::Prover::CLI`. |
 
 Naming: avoiding "Collector" because Test2::Harness2 already owns that name with a specific shape; `Worker` is unambiguous.
 
@@ -167,7 +167,7 @@ sub summary    { my ($self, $aggregator) = @_; ... }
 ## CLI surface (V1)
 
 ```
-app-prover [options] [TEST_FILES_OR_DIRS]
+prover [options] [TEST_FILES_OR_DIRS]
 
   -j N, --jobs N         Concurrency (default: $ENV{HARNESS_JOBS} || 1)
   -l, --lib              Add ./lib to @INC
@@ -181,7 +181,6 @@ app-prover [options] [TEST_FILES_OR_DIRS]
   --reverse              Reverse test order
   --timer                Show per-test elapsed time
   --backend NAME         tap (default) | test2
-  --jsonl FILE           Also emit JSONL events to FILE
   --log-dispatch CONFIG  Optional Log::Dispatch wiring (path or module)
   --version, --help
 ```
@@ -196,7 +195,7 @@ Env vars set in worker before exec (mimicking prove): `HARNESS_ACTIVE=1`, `HARNE
 4. **Sinks.** `Sink` role + `Sink::Verbose` + `Sink::QVF`. Unit test against pre-recorded event streams.
 5. **Runner without MCE.** Wire Worker → Sink directly (`-j 1` mode) feeding `TAP::Parser::Aggregator`. Verify summary line matches prove's format closely enough.
 6. **Add MCE::Flow.** Replace direct call with `MCE::Flow::run`. Manager registers `on_event` and per-job buffer logic. Verify event-arrival ordering inside a job; cross-job ordering may interleave at the buffer flush boundary, which is fine for QVF.
-7. **CLI.** `App::Prover::CLI` with `Getopt::Long`. Wire to Runner. Implement test discovery, `-l/-b/-I/-M`, `--ext`, `--shuffle`, `--reverse`, `--timer`. Set HARNESS_* env. Add `bin/app-prover`.
+7. **CLI.** `App::Prover::CLI` with `Getopt::Long`. Wire to Runner. Implement test discovery, `-l/-b/-I/-M`, `--ext`, `--shuffle`, `--reverse`, `--timer`. Set HARNESS_* env. Add `bin/prover`.
 8. **Optional sinks.** `Sink::JSONL`, `Sink::LogDispatch` (deferred load).
 9. **Optional Test2 backend.** `App::Prover::Backend::Test2` wrapping `Test2::Harness2::Collector::Parser::TapParser`. Lazy-require; if missing, `--backend test2` errors clearly.
 10. **End-to-end smoke + benchmark.** Run against (a) own test suite, (b) a checkout of `Test2-Suite` or `Mojolicious` test dir, (c) a synthetic 1000-tiny-tests fixture. Benchmark against `prove -j 16` and `yath test -j 16`.
@@ -218,13 +217,13 @@ What we are explicitly **not** reusing:
 End-to-end checks (Runner + Worker + Sink + Backend + MCE):
 
 1. **Fixture directory** (`t/fixtures/`): `pass.t`, `fail.t`, `skip.t`, `todo.t`, `bail.t`, `plan-at-end.t`, `slow.t` (sleeps 1s), `noisy.t` (lots of `diag`).
-2. **Single-job runs:** `app-prover -j1 -v t/fixtures/` — assert verbose stream matches expected fixture transcript.
-3. **Parallel runs:** `app-prover -j8 t/fixtures/` — assert exit code; assert QVF behavior (no verbose output for passing files, full output for `fail.t` and `bail.t`); assert summary matches.
+2. **Single-job runs:** `prover -j1 -v t/fixtures/` — assert verbose stream matches expected fixture transcript.
+3. **Parallel runs:** `prover -j8 t/fixtures/` — assert exit code; assert QVF behavior (no verbose output for passing files, full output for `fail.t` and `bail.t`); assert summary matches.
 4. **Determinism:** Run with `--reverse` and verify results identical except order.
 5. **Backend swap:** `--backend test2` against same fixtures; assert same pass/fail verdicts.
 6. **Discovery:** Run with no args inside a fixture project that has `t/` and `xt/`; verify only `t/` is picked up by default.
 7. **Compare summary line** against `prove` output on the same fixtures (test count, pass/fail/skip totals).
-8. **Benchmark** (manual, after V1): `time app-prover -j16` vs `time prove -j16` vs `time yath test -j16` on a fixture of 1000 trivial `.t` files. Document numbers in the README.
+8. **Benchmark** (manual, after V1): `time prover -j16` vs `time prove -j16` vs `time yath test -j16` on a fixture of 1000 trivial `.t` files. Document numbers in the README.
 9. **Real-world sanity:** Run against `cpan -g Mojolicious` test dir; compare exit code with `prove`.
 
 ## Risks / things explicitly deferred
