@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 package App::Prover::CLI;
 
 use strict;
@@ -11,6 +12,8 @@ use List::Util  qw(shuffle);
 use App::Prover::Runner ();
 
 our $VERSION = $App::Prover::Runner::VERSION;
+
+exit run(@ARGV) unless caller;
 
 sub run {
     my ($class, @argv) = @_;

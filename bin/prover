@@ -1,8 +1,1 @@
-#!/usr/bin/env perl
-
-use strict;
-use warnings;
-
-use App::Prover::CLI ();
-
-exit App::Prover::CLI->run(@ARGV);
+../lib/App/Prover/CLI.pm
