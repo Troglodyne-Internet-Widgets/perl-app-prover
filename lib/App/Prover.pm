@@ -5,11 +5,10 @@ use strict;
 use warnings;
 
 use Getopt::Long qw(GetOptionsFromArray :config no_auto_abbrev no_ignore_case bundling);
-use File::Find  ();
-use File::Spec  ();
 use List::Util  qw(shuffle);
 
-use App::Prover::Runner ();
+use App::Prover::Discovery ();
+use App::Prover::Runner    ();
 
 our $VERSION = $App::Prover::Runner::VERSION;
 
@@ -67,8 +66,7 @@ sub run {
     # only replacing the test to run. Not sure if that's even possible in perl.
     my @perl_args = ( ( map { "-I$_" } @inc ), ( map { "-M$_" } @{ $opt{M} } ) );
 
-    # XXX TODO make test discovery its own module so that it can be extended
-    my @files = _discover_tests(\@argv, $opt{ext}, $opt{recurse});
+    my @files = App::Prover::Discovery::discover(\@argv, $opt{ext}, $opt{recurse});
     @files = shuffle @files          if $opt{shuffle};
     @files = reverse @files          if $opt{reverse};
 
@@ -118,63 +116,6 @@ sub _build_sinks {
     }
 
     return \@sinks;
-}
-
-sub _discover_tests {
-    my ($argv, $exts, $recurse) = @_;
-
-    my @args = @$argv ? @$argv : (-d 't' ? ('t') : (), -d 'xt' ? ('xt') : ());
-    return () unless @args;
-
-    my @files;
-    for my $arg (@args) {
-        if (-f $arg) {
-            push @files, $arg;
-            next;
-        }
-        if (-d _) {
-            push @files, _files_under($arg, $exts, $recurse);
-            next;
-        }
-        warn "no such file or directory: $arg\n";
-    }
-    return @files;
-}
-
-sub _files_under {
-    my ($dir, $exts, $recurse) = @_;
-    my %ext_set = map { $_ => 1 } map { /^\./ ? $_ : ".$_" } @$exts;
-    my @found;
-    if ($recurse) {
-        File::Find::find(
-            {
-                wanted => sub {
-                    return unless -f $_;
-                    my ($e) = $_ =~ /(\.[^.]+)$/;
-                    return unless $e && $ext_set{$e};
-                    push @found, $File::Find::name;
-                },
-                no_chdir => 1,
-            },
-            $dir,
-        );
-    }
-    else {
-        opendir my $dh, $dir or do {
-            warn "cannot open directory $dir: $!\n";
-            return ();
-        };
-        while ( defined( my $entry = readdir $dh ) ) {
-            next if $entry =~ /^\.\.?$/;
-            my $path = File::Spec->catfile($dir, $entry);
-            next unless -f $path;
-            my ($e) = $entry =~ /(\.[^.]+)$/;
-            next unless $e && $ext_set{$e};
-            push @found, $path;
-        }
-        closedir $dh;
-    }
-    return sort @found;
 }
 
 sub _print_version {
