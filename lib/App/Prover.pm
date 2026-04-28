@@ -23,6 +23,7 @@ sub run {
         ext     => [],
         I       => [],
         M       => [],
+        preload => [],
     );
 
     GetOptionsFromArray(
@@ -32,6 +33,7 @@ sub run {
         'blib|b!'         => \$opt{blib},
         'I=s@'            => $opt{I},
         'M=s@'            => $opt{M},
+        'preload=s@'      => $opt{preload},
         'recurse|r!'      => \$opt{recurse},
         'verbose|v!'      => \$opt{verbose},
         'ext=s@'          => $opt{ext},
@@ -54,16 +56,16 @@ sub run {
     push @inc, 'blib/lib', 'blib/arch'  if $opt{blib};
     push @inc, @{ $opt{I} }             if @{ $opt{I} };
 
-    # Slam together perlopts mostly for lib/module loads
-    # XXX TODO Ideally preloads are actually mindread from -M arg.
-    # To be honest, we probably can preload them in the main process
-    # as ultimately the children all would share whatever's loaded even if
-    # we use something like goto::file.
-    # In order not to pollute memory state in the shared workers, we may
-    # have to get clever about scrubbing whatever the test had loaded perhaps.
-    # It would be interesting if we could mmap the state right of the process
-    # worker right before it executes then just brainwash the worker,
-    # only replacing the test to run. Not sure if that's even possible in perl.
+    my $preload_active = @{ $opt{preload} } ? 1 : 0;
+
+    if ($preload_active) {
+        unshift @INC, @inc;
+        _do_preload($_) for @{ $opt{preload} };
+        if (@{ $opt{M} }) {
+            warn "warning: -M is ignored when --preload is in use; preload modules with --preload instead\n";
+        }
+    }
+
     my @perl_args = ( ( map { "-I$_" } @inc ), ( map { "-M$_" } @{ $opt{M} } ) );
 
     my @files = App::Prover::Discovery::discover(\@argv, $opt{ext}, $opt{recurse});
@@ -82,10 +84,26 @@ sub run {
         verbose   => $opt{verbose} ? 1 : 0,
         backend   => $opt{backend},
         perl_args => \@perl_args,
+        preload   => $preload_active,
         sinks     => $sinks,
     );
 
     return $runner->run(@files);
+}
+
+sub _do_preload {
+    my ($spec) = @_;
+    my ($mod, $args) = split /=/, $spec, 2;
+    (my $path = $mod) =~ s{::}{/}g;
+    $path .= '.pm';
+    my $ok = eval { require $path; 1 };
+    unless ($ok) {
+        warn "preload: require $mod failed: $@";
+        return;
+    }
+    my @import_args = defined $args ? split /,/, $args : ();
+    eval { $mod->import(@import_args); 1 }
+        or warn "preload: $mod->import failed: $@";
 }
 
 sub _build_sinks {
@@ -181,7 +199,24 @@ Add C<PATH> to C<@INC>. Repeatable.
 
 =item B<-M MODULE>
 
-Pass C<-MMODULE> to test workers. Repeatable.
+Pass C<-MMODULE> to test workers. Repeatable. Ignored when B<--preload> is
+in use; preload modules with B<--preload> instead.
+
+=item B<--preload MODULE[=ARGS]>
+
+Load (and import) MODULE in the manager process before any tests run. Test
+workers fork from the preloaded manager and execute the test in-process via
+C<do $file>, inheriting the preloaded modules through copy-on-write. Avoids
+paying perl-bootstrap + module-compile cost per test, at the price of: (a)
+losing C<exec>-based isolation (state from the manager is visible to the
+test); (b) tests that depend on stack-frame depth (e.g. C<caller(0)> equal
+to a particular value) may behave differently than under prove. Repeatable.
+
+Module args follow the C<-MMODULE=arg1,arg2> convention:
+
+    --preload Moose
+    --preload Mojo::Base=-strict
+    --preload List::Util=shuffle,sum
 
 =item B<-r>, B<--recurse>
 

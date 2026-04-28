@@ -94,6 +94,7 @@ sub _run_serial {
             env       => $env,
             perl      => $self->{opts}{perl},
             perl_args => $self->{opts}{perl_args},
+            preload   => $self->{opts}{preload} ? 1 : 0,
         );
         $result->{parser_stats} = App::Prover::Stats->extract($result->{parser});
         $self->_finish_test($result);

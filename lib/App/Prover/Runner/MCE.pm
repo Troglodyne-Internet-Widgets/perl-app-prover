@@ -31,6 +31,7 @@ sub run_parallel {
     my $perl      = $runner->{opts}{perl};
     my $perl_args = $runner->{opts}{perl_args};
     my $jobs      = $runner->{opts}{jobs};
+    my $preload   = $runner->{opts}{preload} ? 1 : 0;
 
     my $worker_func = sub {
         my ($mce, $chunk_ref) = @_;
@@ -47,6 +48,7 @@ sub run_parallel {
                     env       => $env,
                     perl      => $perl,
                     perl_args => $perl_args,
+                    preload   => $preload,
                 );
             };
             if ($@) {

@@ -20,6 +20,7 @@ sub run {
     my $env     = $args{env}     || {};
     my $perl    = $args{perl}    || $Config::Config{perlpath} || $^X;
     my $perl_args = $args{perl_args} || [];
+    my $preload   = $args{preload} ? 1 : 0;
 
     my $emit_with_ctx = sub {
         my %ev = %{ $_[0] };
@@ -56,8 +57,13 @@ sub run {
 
         $ENV{$_} = $env->{$_} for keys %$env;
 
-        exec $perl, @$perl_args, $file
-            or do { print STDERR "exec $perl $file failed: $!\n"; exit 127 };
+        if ($preload) {
+            _run_in_child($file, $writer);
+        }
+        else {
+            exec $perl, @$perl_args, $file
+                or do { print STDERR "exec $perl $file failed: $!\n"; exit 127 };
+        }
     }
 
     close $writer;
@@ -92,6 +98,49 @@ sub run {
         signal     => $signal,
         elapsed_ms => $elapsed_ms,
     };
+}
+
+# Run the test in-process via do(), then exit. Used when --preload is in
+# effect — the manager has already loaded the heavyweight modules and we
+# want the child to inherit them via copy-on-write rather than paying a
+# fresh perl bootstrap. goto::file would give a cleaner stack frame than
+# do() but it's a compile-time source filter and can't be invoked
+# dynamically post-fork; do() adds one stack frame, which most modern test
+# tooling tolerates.
+sub _run_in_child {
+    my ($file, $writer) = @_;
+
+    # Drop the Perl-level reference to the pipe writer; its underlying fd
+    # already lives on at fd 1/2 via POSIX::dup2, and leaving the lexical
+    # alive risks GC closing fd 1/2 out from under Test::Builder's dup of
+    # STDOUT later.
+    close $writer if $writer;
+
+    STDOUT->autoflush(1);
+    STDERR->autoflush(1);
+
+    # Modern perl drops "." from @INC for security; do() on a bare relative
+    # path then fails with "is no longer in @INC". Anchor non-absolute paths
+    # so do() resolves them against the cwd.
+    my $do_target = ($file =~ m{^/} || $file =~ m{^\./}) ? $file : "./$file";
+
+    {
+        # do() leaves a previously-set $@ alone on success, so localize it
+        # to detect compile / BEGIN failures.
+        local $@;
+        my $rv = do $do_target;
+        if ($@) {
+            print STDERR "compile error in $file: $@";
+            CORE::exit(255);
+        }
+        if (!defined $rv && $!) {
+            print STDERR "could not run $file: $!\n";
+            CORE::exit(255);
+        }
+    }
+    # END handlers (Test::More's, anyone else's) run here and may adjust $?
+    # to reflect the test's verdict. exit(0) lets that final $? surface.
+    CORE::exit(0);
 }
 
 # Close inherited file descriptors above STDIN/STDOUT/STDERR so the exec'd test
