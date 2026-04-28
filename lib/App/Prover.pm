@@ -19,7 +19,7 @@ sub run {
 
     my %opt = (
         jobs    => $ENV{HARNESS_JOBS} || 1,
-        backend => 'tap', # XXX TODO support more backends
+        backend => 'tap',
         ext     => [],
         I       => [],
         M       => [],
