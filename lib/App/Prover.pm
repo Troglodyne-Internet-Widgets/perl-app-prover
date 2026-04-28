@@ -182,30 +182,15 @@ sub _print_version {
     return 0;
 }
 
-# XXX replace with POD::Usage
 sub _usage {
     my ($fh, $exit) = @_;
-    print {$fh} <<'USAGE';
-Usage: prover [options] [tests-or-dirs...]
-
-  -j N, --jobs N        Concurrency (default: $HARNESS_JOBS || 1)
-  -l, --lib             Add ./lib to @INC
-  -b, --blib            Add ./blib/lib and ./blib/arch to @INC
-  -I PATH               Add PATH to @INC (repeatable)
-  -M MODULE             -mMODULE for tests (repeatable)
-  -r, --recurse         Recurse into directories
-  -v, --verbose         Verbose output (live-stream when -j 1)
-  --ext EXT             Filename extension to discover (default: .t, repeatable)
-  --shuffle             Shuffle test order
-  --reverse             Reverse test order
-  --timer               Show per-test elapsed time
-  --backend NAME        tap (default) | test2
-  --log-dispatch CFG    Optional Log::Dispatch wiring
-  --version             Print version and exit
-  -h, --help            Show this help
-
-If no test paths are given, discovers tests under t/ then xt/.
-USAGE
+    require Pod::Usage;
+    Pod::Usage::pod2usage(
+        -input   => __FILE__,
+        -output  => $fh,
+        -verbose => $exit ? 0 : 1,
+        -exitval => 'NOEXIT',
+    );
     return $exit;
 }
 
@@ -219,13 +204,80 @@ App::Prover - simple, fast, MCE-driven Perl test runner script
 
 =head1 SYNOPSIS
 
+    prover [options] [tests-or-dirs...]
+
+Or programmatically:
+
     use App::Prover;
-    my $exit = App::Prover->new(
-        jobs    => 8,
-        verbose => 0,
-        backend => 'tap',
-    )->run(@test_files);
-    exit $exit;
+    exit App::Prover->run(@ARGV);
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-j N>, B<--jobs N>
+
+Concurrency. Defaults to C<$ENV{HARNESS_JOBS}> or 1.
+
+=item B<-l>, B<--lib>
+
+Add F<./lib> to C<@INC>.
+
+=item B<-b>, B<--blib>
+
+Add F<./blib/lib> and F<./blib/arch> to C<@INC>.
+
+=item B<-I PATH>
+
+Add C<PATH> to C<@INC>. Repeatable.
+
+=item B<-M MODULE>
+
+Pass C<-MMODULE> to test workers. Repeatable.
+
+=item B<-r>, B<--recurse>
+
+Recurse into directories during test discovery.
+
+=item B<-v>, B<--verbose>
+
+Verbose output. Live-streams when C<-j 1>.
+
+=item B<--ext EXT>
+
+Filename extension to discover. Defaults to F<.t>. Repeatable.
+
+=item B<--shuffle>
+
+Shuffle test order.
+
+=item B<--reverse>
+
+Reverse test order.
+
+=item B<--timer>
+
+Show per-test elapsed time.
+
+=item B<--backend NAME>
+
+Backend parser: C<tap> (default) or C<test2>.
+
+=item B<--log-dispatch CFG>
+
+Optional L<Log::Dispatch> wiring (path or hashref module).
+
+=item B<--version>
+
+Print version and exit.
+
+=item B<-h>, B<--help>
+
+Show this help.
+
+=back
+
+If no test paths are given, discovers tests under F<t/> then F<xt/>.
 
 =head1 DESCRIPTION
 
