@@ -1,9 +1,10 @@
 use strict;
 use warnings;
+
+use FindBin::libs;
 use Test::More;
 use File::Temp ();
 use File::Spec ();
-use FindBin ();
 
 use App::Prover::Event       qw(:types new_event);
 

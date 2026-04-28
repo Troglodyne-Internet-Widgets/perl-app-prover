@@ -1,7 +1,8 @@
 use strict;
 use warnings;
+
+use FindBin::libs;
 use Test::More;
-use FindBin ();
 use File::Spec ();
 
 BEGIN {

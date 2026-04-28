@@ -1,5 +1,7 @@
 use strict;
 use warnings;
+
+use FindBin::libs;
 use Test::More;
 
 BEGIN {

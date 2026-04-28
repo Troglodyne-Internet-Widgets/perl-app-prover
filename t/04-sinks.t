@@ -1,5 +1,7 @@
 use strict;
 use warnings;
+
+use FindBin::libs;
 use Test::More;
 
 use App::Prover::Sink::Verbose ();
