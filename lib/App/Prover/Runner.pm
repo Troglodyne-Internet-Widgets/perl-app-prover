@@ -39,15 +39,13 @@ sub new {
 
 sub _default_sinks {
     my ($opts) = @_;
-    require App::Prover::Sink::Verbose;
-    require App::Prover::Sink::QVF;
-    if ($opts->{jobs} > 1) {
-        return [ App::Prover::Sink::QVF->new ];
-    }
-    if ($opts->{verbose}) {
-        return [ App::Prover::Sink::Verbose->new ];
-    }
-    return [ App::Prover::Sink::QVF->new ];
+    require App::Prover::Sink::Log;
+    return [
+        App::Prover::Sink::Log->new(
+            min_level => $opts->{verbose} ? 'info' : 'notice',
+            live      => ($opts->{verbose} && ($opts->{jobs} // 1) <= 1) ? 1 : 0,
+        ),
+    ];
 }
 
 sub stats   { $_[0]->{stats} }

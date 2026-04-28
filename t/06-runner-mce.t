@@ -16,9 +16,19 @@ my $fixtures = File::Spec->catdir($FindBin::Bin, 'fixtures');
 
 sub captured_runner {
     my (%opts) = @_;
-    open my $fh, '>', \my $buf or die $!;
-    require App::Prover::Sink::QVF;
-    my $sink = App::Prover::Sink::QVF->new(fh => $fh);
+    require Log::Dispatch;
+    require App::Prover::Sink::Log;
+    my $buf = '';
+    my $log = Log::Dispatch->new(
+        outputs => [
+            [
+                'Code',
+                min_level => 'notice',
+                code      => sub { my %p = @_; $buf .= $p{message} . "\n" },
+            ],
+        ],
+    );
+    my $sink = App::Prover::Sink::Log->new( log => $log, live => 0 );
     my $runner = App::Prover::Runner->new(
         jobs    => $opts{jobs} || 4,
         verbose => 0,

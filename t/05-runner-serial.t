@@ -11,17 +11,28 @@ my $fixtures = File::Spec->catdir($FindBin::Bin, 'fixtures');
 
 sub captured_runner {
     my (%opts) = @_;
-    open my $fh, '>', \my $buf or die $!;
-    require App::Prover::Sink::QVF;
-    require App::Prover::Sink::Verbose;
-    my $sink_class = $opts{verbose} ? 'App::Prover::Sink::Verbose' : 'App::Prover::Sink::QVF';
-    my $sink = $sink_class->new(fh => $fh);
+    require Log::Dispatch;
+    require App::Prover::Sink::Log;
+    my $buf = '';
+    my $log = Log::Dispatch->new(
+        outputs => [
+            [
+                'Code',
+                min_level => $opts{verbose} ? 'info' : 'notice',
+                code      => sub { my %p = @_; $buf .= $p{message} . "\n" },
+            ],
+        ],
+    );
+    my $sink = App::Prover::Sink::Log->new(
+        log  => $log,
+        live => $opts{verbose} ? 1 : 0,
+    );
     my $runner = App::Prover::Runner->new(
         jobs    => 1,
         verbose => $opts{verbose} || 0,
         sinks   => [ $sink ],
     );
-    return ($runner, \$buf, $fh);
+    return ($runner, \$buf);
 }
 
 subtest 'serial: pass and fail' => sub {

@@ -9,9 +9,9 @@ requires 'IPC::Open3',               '0';
 requires 'Getopt::Long',             '2.49';
 requires 'File::Find',               '0';
 requires 'List::Util',               '1.45';
+requires 'Log::Dispatch',            '2.40';
 
 recommends 'Test2::Harness', '0';
-recommends 'Log::Dispatch',  '0';
 recommends 'JSON::PP',       '0';
 
 on 'configure' => sub {

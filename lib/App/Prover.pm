@@ -90,32 +90,39 @@ sub run {
 
 sub _build_sinks {
     my ($opt) = @_;
-    my @sinks;
 
-    if ($opt->{verbose} && $opt->{jobs} <= 1) {
-        require App::Prover::Sink::Verbose;
-        push @sinks, App::Prover::Sink::Verbose->new;
-    }
-    else {
-        require App::Prover::Sink::QVF;
-        push @sinks, App::Prover::Sink::QVF->new;
+    require Log::Dispatch;
+    require Log::Dispatch::Screen;
+    require App::Prover::Sink::Log;
+
+    my @outputs = (
+        [
+            'Screen',
+            min_level => $opt->{verbose} ? 'info' : 'notice',
+            newline   => 1,
+            stderr    => 0,
+        ],
+    );
+
+    if (my $cfg = $opt->{log_dispatch}) {
+        require Log::Dispatch::File;
+        push @outputs, [
+            'File',
+            min_level => 'debug',
+            filename  => $cfg,
+            newline   => 1,
+            mode      => '>>',
+        ];
     }
 
-    # XXX TODO I think Log::Dispatch is being used improperly here.
-    # Ideally we just past a list of output (dispatch) sources to it
-    # Whether that be a log, STD*, what have you
-    # The -v is just a loglevel. Instead the opt should basically just add another logfile
-    # If we want other dispatch like a DB then this should be handled by a config file I think.
-    # Failure events via a logger pattern match "error" output which would be an earlier
-    # loglevel than verbose, so you basically get qvf for free just by having your minimum
-    # loglevel be that style of output where not_ok is considered error output.
-    # Levels: error, summary (default), verbose.
-    if ($opt->{log_dispatch}) {
-        require App::Prover::Sink::LogDispatch;
-        push @sinks, App::Prover::Sink::LogDispatch->new(config => $opt->{log_dispatch});
-    }
+    my $log = Log::Dispatch->new( outputs => \@outputs );
 
-    return \@sinks;
+    return [
+        App::Prover::Sink::Log->new(
+            log  => $log,
+            live => ($opt->{verbose} && $opt->{jobs} <= 1) ? 1 : 0,
+        ),
+    ];
 }
 
 sub _print_version {

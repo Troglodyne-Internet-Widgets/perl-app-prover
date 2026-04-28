@@ -15,9 +15,11 @@ WriteMakefile(
         'ExtUtils::MakeMaker' => '6.64',
     },
     TEST_REQUIRES => {
-        'Test::More'  => '0.98',
-        'File::Temp'  => '0',
-        'File::Spec'  => '0',
+        'Test::More'    => '0.98',
+        'File::Temp'    => '0',
+        'File::Spec'    => '0',
+        'FindBin'       => '0',
+        'FindBin::libs' => '0',
     },
     PREREQ_PM => {
         'MCE'                    => '1.870',
@@ -29,6 +31,7 @@ WriteMakefile(
         'Getopt::Long'           => '2.49',
         'File::Find'             => '0',
         'List::Util'             => '1.45',
+        'Log::Dispatch'          => '2.40',
     },
 
     META_MERGE => {
@@ -37,7 +40,6 @@ WriteMakefile(
             runtime => {
                 recommends => {
                     'Test2::Harness'   => 0,
-                    'Log::Dispatch'    => 0,
                     'JSON::PP'         => 0,
                 },
             },
