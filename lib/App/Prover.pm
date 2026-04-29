@@ -122,12 +122,12 @@ sub _build_sinks {
         ],
     );
 
-    if (my $cfg = $opt->{log}) {
+    if (length $opt->{log}) {
         require Log::Dispatch::File;
         push @outputs, [
             'File',
             min_level => 'debug',
-            filename  => $cfg,
+            filename  => $opt->{log},
             newline   => 1,
             mode      => '>>',
         ];
@@ -246,9 +246,9 @@ Show per-test elapsed time.
 
 Backend parser: C<tap> (default) or C<test2>.
 
-=item B<--log-dispatch CFG>
+=item B<--log CFG>
 
-Optional L<Log::Dispatch> wiring (path or hashref module).
+Optional log file to emit to.
 
 =item B<--version>
 

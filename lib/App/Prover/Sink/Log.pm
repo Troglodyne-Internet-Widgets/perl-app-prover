@@ -9,23 +9,8 @@ use App::Prover::Event qw(:types);
 
 sub new {
     my ($class, %opts) = @_;
-
+    die "Needs Log::Dispatch object as 'log'" unless( ref $opts{'log'} eq 'Log::Dispatch' );
     my $log = delete $opts{log};
-    unless ($log) {
-        require Log::Dispatch;
-        my $outputs = delete $opts{outputs};
-        unless ($outputs) {
-            require Log::Dispatch::Screen;
-            $outputs = [
-                [
-                    'Screen',
-                    min_level => delete $opts{min_level} // 'notice',
-                    newline   => 1,
-                ],
-            ];
-        }
-        $log = Log::Dispatch->new( outputs => $outputs );
-    }
 
     my $self = $class->SUPER::new(%opts);
     $self->{log}     = $log;
