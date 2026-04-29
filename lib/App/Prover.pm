@@ -28,22 +28,22 @@ sub run {
 
     GetOptionsFromArray(
         \@argv,
-        'jobs|j=i'        => \$opt{jobs},
-        'lib|l!'          => \$opt{lib},
-        'blib|b!'         => \$opt{blib},
-        'I=s@'            => $opt{I},
-        'M=s@'            => $opt{M},
-        'preload=s@'      => $opt{preload},
-        'recurse|r!'      => \$opt{recurse},
-        'verbose|v!'      => \$opt{verbose},
-        'ext=s@'          => $opt{ext},
-        'shuffle!'        => \$opt{shuffle},
-        'reverse!'        => \$opt{reverse},
-        'timer!'          => \$opt{timer},
-        'backend=s'       => \$opt{backend},
-        'log-dispatch=s'  => \$opt{log_dispatch},
-        'version'         => \$opt{show_version},
-        'help|h'          => \$opt{show_help},
+        'jobs|j=i'   => \$opt{jobs},
+        'lib|l!'     => \$opt{lib},
+        'blib|b!'    => \$opt{blib},
+        'I=s@'       => $opt{I},
+        'M=s@'       => $opt{M},
+        'preload=s@' => $opt{preload},
+        'recurse|r!' => \$opt{recurse},
+        'verbose|v!' => \$opt{verbose},
+        'ext=s@'     => $opt{ext},
+        'shuffle!'   => \$opt{shuffle},
+        'reverse!'   => \$opt{reverse},
+        'timer!'     => \$opt{timer},
+        'backend=s'  => \$opt{backend},
+        'log=s'      => \$opt{log},
+        'version'    => \$opt{show_version},
+        'help|h'     => \$opt{show_help},
     ) or return _usage(\*STDERR, 2);
 
     return _print_version() if $opt{show_version};
@@ -122,7 +122,7 @@ sub _build_sinks {
         ],
     );
 
-    if (my $cfg = $opt->{log_dispatch}) {
+    if (my $cfg = $opt->{log}) {
         require Log::Dispatch::File;
         push @outputs, [
             'File',
