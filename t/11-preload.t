@@ -13,7 +13,7 @@ use File::Spec ();
 # in a subprocess, capture its output, and assert the probe fixture passed.
 
 my $bin     = File::Spec->catfile($FindBin::Bin, '..', 'bin', 'prover');
-my $fixture = File::Spec->catfile($FindBin::Bin, 'fixtures', 'preload-probe.t');
+my $fixture = File::Spec->catfile($FindBin::Bin, '..', 'corpus', 'preload-probe.t');
 my $tlib    = File::Spec->catdir($FindBin::Bin, 'lib');
 
 sub run_prover {

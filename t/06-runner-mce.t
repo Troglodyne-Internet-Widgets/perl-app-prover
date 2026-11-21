@@ -13,7 +13,7 @@ BEGIN {
 
 use App::Prover::Runner ();
 
-my $fixtures = File::Spec->catdir($FindBin::Bin, 'fixtures');
+my $fixtures = File::Spec->catdir($FindBin::Bin, '..', 'corpus');
 
 sub captured_runner {
     my (%opts) = @_;
