@@ -191,7 +191,7 @@ Env vars set in worker before exec (mimicking prove): `HARNESS_ACTIVE=1`, `HARNE
 
 1. **Repo scaffolding.** `dist.ini` (Dist::Zilla) or plain `Makefile.PL`. Pick `Makefile.PL` — fewer deps, matches App::Prove/Yath. Add `lib/` and `bin/` skeletons. Declare deps: `MCE >= 1.9`, `TAP::Parser` (core), `Time::HiRes` (core). Optional: `Test2::Harness`, `Log::Dispatch`. Pin `MCE` to a known-good version range.
 2. **Event + Backend role + TAP backend.** `App::Prover::Event`, `App::Prover::Backend::TAP`. Unit test: feed in-memory TAP, assert normalized events.
-3. **Worker (no MCE yet).** Synchronous `App::Prover::Worker::run` that fork+execs perl on a `.t` file, drains via Backend, calls a passed-in `$emit`. Unit test against fixture `.t` files in `t/fixtures/`.
+3. **Worker (no MCE yet).** Synchronous `App::Prover::Worker::run` that fork+execs perl on a `.t` file, drains via Backend, calls a passed-in `$emit`. Unit test against fixture `.t` files in `corpus/`.
 4. **Sinks.** `Sink` role + `Sink::Verbose` + `Sink::QVF`. Unit test against pre-recorded event streams.
 5. **Runner without MCE.** Wire Worker → Sink directly (`-j 1` mode) feeding `TAP::Parser::Aggregator`. Verify summary line matches prove's format closely enough.
 6. **Add MCE::Flow.** Replace direct call with `MCE::Flow::run`. Manager registers `on_event` and per-job buffer logic. Verify event-arrival ordering inside a job; cross-job ordering may interleave at the buffer flush boundary, which is fine for QVF.
@@ -216,9 +216,9 @@ What we are explicitly **not** reusing:
 
 End-to-end checks (Runner + Worker + Sink + Backend + MCE):
 
-1. **Fixture directory** (`t/fixtures/`): `pass.t`, `fail.t`, `skip.t`, `todo.t`, `bail.t`, `plan-at-end.t`, `slow.t` (sleeps 1s), `noisy.t` (lots of `diag`).
-2. **Single-job runs:** `prover -j1 -v t/fixtures/` — assert verbose stream matches expected fixture transcript.
-3. **Parallel runs:** `prover -j8 t/fixtures/` — assert exit code; assert QVF behavior (no verbose output for passing files, full output for `fail.t` and `bail.t`); assert summary matches.
+1. **Fixture directory** (`corpus/`): `pass.t`, `fail.t`, `skip.t`, `todo.t`, `bail.t`, `plan-at-end.t`, `slow.t` (sleeps 1s), `noisy.t` (lots of `diag`).
+2. **Single-job runs:** `prover -j1 -v corpus/` — assert verbose stream matches expected fixture transcript.
+3. **Parallel runs:** `prover -j8 corpus/` — assert exit code; assert QVF behavior (no verbose output for passing files, full output for `fail.t` and `bail.t`); assert summary matches.
 4. **Determinism:** Run with `--reverse` and verify results identical except order.
 5. **Backend swap:** `--backend test2` against same fixtures; assert same pass/fail verdicts.
 6. **Discovery:** Run with no args inside a fixture project that has `t/` and `xt/`; verify only `t/` is picked up by default.

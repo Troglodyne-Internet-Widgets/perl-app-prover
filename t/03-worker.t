@@ -10,7 +10,7 @@ use App::Prover::Worker ();
 use App::Prover::Backend::TAP ();
 use App::Prover::Event qw(:types);
 
-my $fixtures = File::Spec->catdir($FindBin::Bin, 'fixtures');
+my $fixtures = File::Spec->catdir($FindBin::Bin, '..', 'corpus');
 
 sub run_fixture {
     my ($name) = @_;
